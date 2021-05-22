@@ -1,5 +1,7 @@
 # MC558 - Tarefa 4
 
+[Enunciado em PDF](enunc.pdf).
+
 ## Problema
 
 ### Engenharia de Tráfego
@@ -69,7 +71,6 @@ Adequado.
 ## Implementação e Submissão
 
 -  A solução deverá ser implementada em C, C++, Pascal ou Python 2/Python 3. Só é permitido o uso de bibliotecas padrão.
-
 
 - O programa deve ser submetido no SuSy, com o nome principal **t4** (por exemplo, `t4.c`).
 
