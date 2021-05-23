@@ -4,10 +4,10 @@
  */
 #include <stdlib.h>
 #include <stddef.h>
-#include <stdio.h>
-#include <stdbool.h>
 #include <stdint.h>
-#include <string.h>
+#include <stdio.h>
+#include <limits.h>
+#include <stdbool.h>
 
 
 #ifdef __GNUC__
@@ -22,162 +22,190 @@
 #define unlikely(x)      (x)
 #endif
 
+// Índice dos vértices.
+typedef uint16_t value_t;
 
-typedef struct matrix {
-    size_t len;
-    bool v[];
-} mat_t;
+// Representação de um nó por lista de adjacências.
+typedef struct node {
+    value_t value;  // valor do nó
+    size_t len;     // qtde de nós adjacentes
+    size_t cap;     // capacidade da lista
+    value_t adj[];  // índice dos nós adjacentes
+} node_t;
+
+// Representação do grafo por lista das adjacências de cada nó.
+typedef struct graph {
+    size_t size;    // qtde de nós no grafo
+    node_t *node[]; // listas das adjacências de cada nó
+} graph_t;
+
+static
+/**
+ * Leitura do grafo pela entrada padrão.
+ *
+ * Retorna NULL em caso de falha.
+ */
+graph_t *read_graph(void)
+attribute(malloc, cold, nothrow);
 
 
-static attribute(malloc, hot, nothrow)
-mat_t *mat_alloc(size_t len) {
-    mat_t *M = calloc(offsetof(mat_t, v) + len * len * sizeof(bool), 1);
-    if unlikely(M == NULL) return NULL;
-
-    M->len = len;
-    return M;
+static attribute(cold, nothrow)
+/**
+ * Desaloca o grafo e seus nós.
+ */
+void graph_free(graph_t *graph) {
+    for (size_t u = 0; u < graph->size; u++) {
+        free(graph->node[u]);
+    }
+    free(graph);
 }
 
-#define at(M, i, j) \
-    M->v[(i) * M->len + (j)]
+int main(void) {
+    graph_t *graph = read_graph();
+    if unlikely(graph == NULL) {
+        return EXIT_FAILURE;
+    }
+
+    graph_free(graph);
+    return EXIT_SUCCESS;
+}
+
+/* * * * * * * * * * *
+ * ALOCAÇÃO DO GRAFO *
+ * * * * * * * * * * */
 
 static attribute(malloc, cold, nothrow)
-mat_t *read_graph(void) {
-    size_t N, M;
-    int rv = scanf("%zu %zu", &N, &M);
-    if unlikely(rv < 2 || N * sizeof(bool) >= SIZE_MAX / N) return NULL;
+/**
+ * Aloca novo nó com capcacidade inicial de 16.
+ *
+ * Retorna NULL em caso de falha.
+ */
+node_t *node_new(value_t value) {
+    const size_t INITIAL = 16;
 
-    mat_t *G = mat_alloc(N);
-    if unlikely(G == NULL) return NULL;
+    node_t *new = malloc(offsetof(node_t, adj) + INITIAL * sizeof(uint16_t));
+    if unlikely(new == NULL) return NULL;
 
-    for (size_t i = 0; i < M; i++) {
-        size_t A, B;
-        uint8_t D;
-        rv = scanf("%zu %zu %hhu", &A, &B, &D);
-        if unlikely(rv < 3 || A >= N || B >= N) {
-            return G;
-            // free(G);
-            // return NULL;
+    new->cap = INITIAL;
+    new->len = 0; // marca a lista como vazia
+    new->value = value;
+    return new;
+}
+
+static attribute(malloc, cold, nothrow)
+/**
+ * Duplica a capacidade da lista de adj. do nó.
+ *
+ * Retorna NULL em caso de falha, sem desalocar
+ * o nó anterior.
+ */
+node_t *node_increase(node_t *node) {
+    size_t capacity = node->cap * 2;
+    // realoca com dobro de capacidade
+    node_t *new = realloc(node, offsetof(node_t, adj) + capacity * sizeof(uint16_t));
+    if unlikely(new == NULL) return NULL;
+
+    // ajusta a capacidade
+    new->cap = capacity;
+    return new;
+}
+
+static attribute(malloc, cold, nothrow)
+/**
+ * Aloca grafo e as listas de adjacências de cada nó.
+ *
+ * Retorna NULL em caso de falha.
+ */
+graph_t *graph_new(size_t size) {
+    graph_t *new = malloc(offsetof(graph_t, node) + size * sizeof(node_t *));
+    if unlikely(new == NULL) return NULL;
+
+    for (size_t u = 0; u < size; u++) {
+        // aloca nó
+        node_t *node = node_new(u);
+        if unlikely(node == NULL) {
+            graph_free(new);
+            return NULL;
         }
+        // insere no grafo
+        new->node[u] = node;
+        new->size += 1;
+    }
+    return new;
+}
+
+static attribute(cold, nothrow)
+/**
+ * Cria aresta direcionada de 'from' para 'to'.
+ *
+ * Retorna 'true' em caso de sucesso, 'false' caso contrário.
+ */
+bool graph_connect(graph_t *graph, value_t from, value_t to) {
+    // valores devem ser índices válidos
+    if unlikely(from >= graph->size || to >= graph->size) {
+        return false;
+    }
+    node_t *node = graph->node[from];
+    // aumenta o tamanho se necessário
+    if unlikely(node->len >= node->cap) {
+        node_t *new = node_increase(node);
+        if unlikely(new == NULL) return false;
+        // reinsere no grafo
+        node = graph->node[from] = new;
+    }
+
+    // insera a aresta na lista de adjacências
+    node->adj[node->len++] = to;
+    return true;
+}
+
+static attribute(cold, nothrow)
+/**
+ * Leitura das arestas do grafo.
+ *
+ * Retorna 'true' em caso de sucesso, 'false' caso contrário.
+ */
+bool read_edges(graph_t *graph, size_t max) {
+    for (size_t i = 0; i < max; i++) {
+        size_t A, B; uint8_t D;
+        // leitura dos cruzamento e da direção
+        int rv = scanf("%zu %zu %hhu", &A, &B, &D);
+        // EOF, continua válido
+        if unlikely(rv < 3) return true;
 
         switch (D) {
             case 2:
-                at(G, B, A) = true;
+                // conexão da mão contrária
+                bool ok = graph_connect(graph, B, A);
+                if unlikely(!ok) return false;
             case 1:
-                at(G, A, B) = true;
-                break;
+                // e da mão direta
+                ok = graph_connect(graph, A, B);
+                if unlikely(!ok) return false;
+            break;
             default:
-                return G;
-                // free(G);
-                // return NULL;
-        }
-    }
-    return G;
-}
-
-static attribute(access(write_only, 1), access(read_only, 2), nonnull, hot, nothrow)
-void mat_copy(mat_t *restrict dest, const mat_t *restrict src) {
-    // assert(dest->len == src->len)
-    memcpy(dest->v, src->v, src->len * src->len * sizeof(bool));
-}
-
-static attribute(access(write_only, 1), access(read_only, 2), access(read_only, 3), nonnull, hot, nothrow)
-void mat_mul(mat_t *restrict out, const mat_t *A, const mat_t *B) {
-    mat_copy(out, A);
-
-    for (size_t i = 0; i < A->len; i++) {
-        for (size_t j = 0; j < A->len; j++) {
-            for (size_t k = 0; k < A->len; k++) {
-                at(out, i, j) |= at(A, i, k) & at(B, k, j);
-            }
-        }
-    }
-}
-
-static attribute(access(write_only, 1), access(read_only, 2), nonnull, hot, nothrow)
-void mat_square(mat_t *restrict out, const mat_t *restrict in) {
-    mat_mul(out, in, in);
-}
-
-static attribute(access(write_only, 1), cold, nothrow)
-void mat_eye(mat_t *M) {
-    for (size_t i = 0; i < M->len; i++) {
-        at(M, i, i) = true;
-    }
-}
-
-static attribute(malloc, access(read_only, 1), nonnull, cold, nothrow)
-mat_t *mat_alloc_copy(const mat_t *M) {
-    mat_t *C = mat_alloc(M->len);
-    if unlikely(C == NULL) return NULL;
-    mat_copy(C, M);
-    return C;
-}
-
-static attribute(access(read_write, 1), malloc, nonnull, hot, nothrow)
-mat_t *mat_pow(mat_t *M, size_t n) {
-    mat_t *S = (n % 2 == 0)? mat_alloc(M->len) : mat_alloc_copy(M);
-    if unlikely(S == NULL) return NULL;
-    mat_eye(S);
-
-    if unlikely(n < 2) return S;
-
-    mat_t *A = M;
-    mat_t *B = mat_alloc(M->len);
-    if unlikely(B == NULL) {
-        free(S);
-        free(B);
-        return NULL;
-    }
-
-    for (n /= 2; n > 0; n /= 2) {
-        {
-            mat_square(B, A);
-            mat_t *ptr = A;
-            A = B;
-            B = ptr;
-        }
-
-        if (n % 2 == 1) {
-            mat_mul(B, S, A);
-            mat_t *ptr = S;
-            S = B;
-            B = ptr;
-        }
-    }
-    free(A); free(B);
-    return S;
-}
-
-static attribute(access(read_only, 1), nonnull, cold, nothrow)
-bool mat_all(const mat_t *mat) {
-    for (size_t i = 0; i < mat->len; i++) {
-        for (size_t j = 0; j < mat->len; j++) {
-            if unlikely(! at(mat, i, j)) {
                 return false;
-            }
         }
     }
     return true;
 }
 
-int main(void) {
-    mat_t *graph = read_graph();
-    if unlikely(graph == NULL) {
-        return EXIT_FAILURE;
-    }
+/* Leitura do grafo. */
+graph_t *read_graph(void) {
+    size_t N, M;
+    // dimensões do grafo
+    int rv = scanf("%zu %zu", &N, &M);
+    if unlikely(rv < 2 || N >= UINT16_MAX) return NULL;
 
-    mat_t *path = mat_pow(graph, graph->len * graph->len);
-    if unlikely(path == NULL) {
-        free(graph);
-        return EXIT_FAILURE;
-    }
+    // alocação
+    graph_t *G = graph_new(N);
+    if unlikely(G == NULL) return NULL;
 
-    if (mat_all(path)) {
-        printf("Adequado.\n");
-    } else {
-        printf("Inadequado.\n");
+    // leitura das arestas
+    bool ok = read_edges(G, M);
+    if unlikely(!ok) {
+        graph_free(G);
+        return NULL;
     }
-    free(path);
-    return EXIT_SUCCESS;
+    return G;
 }
