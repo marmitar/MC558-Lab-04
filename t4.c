@@ -60,10 +60,35 @@ void graph_free(graph_t *graph) {
     free(graph);
 }
 
+static
+/**
+ * Checagem dos requisitos do mapa.
+ *
+ * Retorna 0 se não passar nos requisitos, um valor
+ * positivo se passar ou -1 em caso de erro.
+ */
+int pass_transit_requirements(const graph_t *map)
+attribute(pure, nonnull, hot, nothrow);
+
+/* Entrada do programa. */
 int main(void) {
+    // leitura
     graph_t *graph = read_graph();
     if unlikely(graph == NULL) {
         return EXIT_FAILURE;
+    }
+
+    // teste da adequação
+    int rv = pass_transit_requirements(graph);
+    if unlikely(rv < 0) {
+        graph_free(graph);
+        return EXIT_FAILURE;
+    }
+    // exibição da adequação
+    if (rv > 0) {
+        printf("Adequado.\n");
+    } else {
+        printf("Inadequado.\n");
     }
 
     graph_free(graph);
@@ -134,7 +159,7 @@ graph_t *graph_new(size_t size) {
     return new;
 }
 
-static attribute(cold, nothrow)
+static attribute(nonnull, cold, nothrow)
 /**
  * Cria aresta direcionada de 'from' para 'to'.
  *
@@ -159,7 +184,7 @@ bool graph_connect(graph_t *graph, value_t from, value_t to) {
     return true;
 }
 
-static attribute(cold, nothrow)
+static attribute(nonnull, cold, nothrow)
 /**
  * Leitura das arestas do grafo.
  *
@@ -208,4 +233,17 @@ graph_t *read_graph(void) {
         return NULL;
     }
     return G;
+}
+
+
+/* * * * * * * * * * *
+ * CHECAGEM DO MAPA  *
+ * * * * * * * * * * */
+
+// Erro durante teste.
+#define ERROR (-1)
+
+/* Requisitos de trânsito. */
+int pass_transit_requirements(const graph_t *_map) {
+    return ERROR;
 }
