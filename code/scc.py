@@ -32,7 +32,7 @@ class Graph:
 
     def add(self, name: str, *edges: str) -> Node:
         node = self.get_or_create(name)
-        node.add_edge(*edges)
+        node.add_edge(*edges, create=True)
         return node
 
     def vertices(self) -> Iterator[Node]:
@@ -70,11 +70,14 @@ class Node:
         self.name = name
         self.adjacency: set[Node] = set()
 
-    def add_edge(self, *nodes: Union[str, Node]) -> None:
+    def add_edge(self, *nodes: Union[str, Node], create: bool=False) -> None:
         for node in nodes:
             name = node if isinstance(node, str) else node.name
 
-            node = self.graph.get_or_create(name)
+            if create:
+                node = self.graph.get_or_create(name)
+            else:
+                node = self.graph[name]
             self.adjacency.add(node)
 
     def adj(self) -> Iterator[Node]:
