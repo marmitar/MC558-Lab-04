@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <string.h>
 
 
 #ifdef __GNUC__
@@ -25,9 +26,11 @@
 // Índice dos vértices.
 typedef uint16_t value_t;
 
+typedef struct graph graph_t;
 // Representação de um nó por lista de adjacências.
 typedef struct node {
     value_t value;  // valor do nó
+    graph_t *graph; // grafo que contém o nó
     size_t len;     // qtde de nós adjacentes
     size_t cap;     // capacidade da lista
     value_t adj[];  // índice dos nós adjacentes
@@ -105,7 +108,7 @@ static attribute(malloc, cold, nothrow)
  *
  * Retorna NULL em caso de falha.
  */
-node_t *node_new(value_t value) {
+node_t *node_new(value_t value, graph_t *graph) {
     const size_t INITIAL = 16;
 
     node_t *new = malloc(offsetof(node_t, adj) + INITIAL * sizeof(uint16_t));
@@ -114,6 +117,7 @@ node_t *node_new(value_t value) {
     new->cap = INITIAL;
     new->len = 0; // marca a lista como vazia
     new->value = value;
+    new->graph = graph;
     return new;
 }
 
@@ -147,7 +151,7 @@ graph_t *graph_new(size_t size) {
 
     for (size_t u = 0; u < size; u++) {
         // aloca nó
-        node_t *node = node_new(u);
+        node_t *node = node_new(u, new);
         if unlikely(node == NULL) {
             graph_free(new);
             return NULL;
@@ -243,7 +247,55 @@ graph_t *read_graph(void) {
 // Erro durante teste.
 #define ERROR (-1)
 
+static attribute(nonnull, hot, nothrow)
+/**
+ * Visita 'node' e todos os seus descendentes não visitados.
+ */
+void visit(const node_t *restrict node, bool *restrict visited) {
+    visited[node->value] = true;
+
+    for (size_t i = 0; i < node->len; i++) {
+        size_t adj = node->adj[i];
+        // visita filhos não visitados
+        if (!visited[adj]) {
+            visit(node->graph->node[adj], visited);
+        }
+    }
+}
+
+static attribute(pure, nonnull, hot, nothrow)
+/**
+ * Checa se todos os nós são visitáveis de 'root'.
+ */
+bool reach_all(const graph_t *restrict graph, size_t root, bool *restrict visited) {
+    // limpa buffer de visitados
+    memset(visited, false, graph->size * sizeof(bool));
+
+    // visita o nó 'i'
+    visit(graph->node[root], visited);
+    for (size_t i = 0; i < graph->size; i++) {
+        // e checa se ele visitou todos os nós
+        if (!visited[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /* Requisitos de trânsito. */
-int pass_transit_requirements(const graph_t *_map) {
-    return ERROR;
+int pass_transit_requirements(const graph_t *map) {
+    // buffer de cálculo de visitados
+    bool *buffer = malloc(map->size * sizeof(bool));
+    if unlikely(buffer == NULL) return ERROR;
+
+    for (size_t i = 0; i < map->size; i++) {
+        // checa se 'i' consegue visitar todos os nós
+        if (!reach_all(map, i, buffer)) {
+            free(buffer);
+            return false;
+        }
+    }
+    // todo nó chega em todo outro nó
+    free(buffer);
+    return true;
 }
