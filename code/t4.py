@@ -9,10 +9,11 @@ def numbers() -> Iterator[list[int]]:
     except EOFError:
         pass
 
-if __name__ == "__main__":
-    G = Graph()
 
+def read_graph() -> Graph:
+    G = Graph()
     N, _ = next(numbers())
+
     for i in range(N):
         G.add(str(i))
 
@@ -28,7 +29,15 @@ if __name__ == "__main__":
         else:
             raise ValueError(D)
 
+    return G
+
+
+if __name__ == "__main__":
+    G = read_graph()
+
     if len(SCC(G).roots) <= 1:
         print("Adequado.")
     else:
         print("Inadequado.")
+
+    # visualize(G)
