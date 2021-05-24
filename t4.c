@@ -202,18 +202,19 @@ bool read_edges(graph_t *graph, size_t max) {
         // EOF, continua válido
         if unlikely(rv < 3) return true;
 
-        switch (D) {
-            case 2:
-                // conexão da mão contrária
-                bool ok = graph_connect(graph, B, A);
-                if unlikely(!ok) return false;
-            case 1:
-                // e da mão direta
-                ok = graph_connect(graph, A, B);
-                if unlikely(!ok) return false;
-            break;
-            default:
-                return false;
+        if (D == 2) {
+            // conexão de duas mãos
+            bool ok = graph_connect(graph, B, A);
+            if unlikely(!ok) return false;
+            ok = graph_connect(graph, A, B);
+            if unlikely(!ok) return false;
+        // conexão da mão direta
+        } else if (D == 1) {
+            bool ok = graph_connect(graph, A, B);
+            if unlikely(!ok) return false;
+        // entrada inválida
+        } else {
+            return false;
         }
     }
     return true;
