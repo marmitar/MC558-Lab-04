@@ -37,10 +37,10 @@ typedef struct node {
 } node_t;
 
 // Representação do grafo por lista das adjacências de cada nó.
-typedef struct graph {
+struct graph {
     size_t size;    // qtde de nós no grafo
     node_t *node[]; // listas das adjacências de cada nó
-} graph_t;
+};
 
 static
 /**
