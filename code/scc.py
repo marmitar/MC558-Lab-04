@@ -3,6 +3,13 @@ from collections import defaultdict
 from typing import Callable, Iterable, Iterator, Optional, Union
 from enum import Enum, auto, unique
 from dataclasses import dataclass
+from graphviz import Digraph
+from matplotlib import colors
+
+
+
+def rgba(color: str, alpha: float=1.0) -> str:
+    return colors.to_hex(colors.to_rgb(color) + (alpha,), keep_alpha=True)
 
 
 class Graph:
@@ -35,6 +42,26 @@ class Graph:
     def __str__(self) -> str:
         nodes = ','.join(self.nodes)
         return self.__class__.__name__ + '({' + nodes + '})'
+
+
+    def viz(self, collection: set[Node] = {}) -> Digraph:
+        graph = Digraph()
+
+        def color(*node: Node):
+            if all(n in collection for n in node):
+                return rgba('k', alpha=1.0)
+            else:
+                return rgba('k', alpha=0.5)
+
+        for node in self.vertices():
+            graph.node(node.name, color=color(node), fontcolor=color(node))
+
+        for node in self.vertices():
+            for adj in node.adj():
+                graph.edge(node.name, adj.name, color=color(node, adj))
+
+        return graph
+
 
 
 class Node:
@@ -152,19 +179,29 @@ def treeset(root: Node, parent: dict[Node, Node]) -> set[Node]:
         return nodes
 
 
-G = Graph()
-G.add('a', 'b')
-G.add('b', 'e', 'f', 'c')
-G.add('c', 'g', 'd')
-G.add('d', 'c', 'h')
-G.add('e', 'a', 'f')
-G.add('f', 'g')
-G.add('g', 'f', 'h')
-G.add('h', 'h')
+def visualize(graph: Graph, tree: set[Node]={}, *, render: bool=True) -> Digraph:
+    digraph = graph.viz(tree)
+    if render:
+        digraph.render(f'{tree}', 'out', view=True, cleanup=True, quiet_view=True)
+    return digraph
 
-for node_set in DFS(G).treesets():
-    print(node_set)
 
-print()
-for node_set in SCC(G).treesets():
-    print(node_set)
+
+if __name__ == "__main__":
+    G = Graph()
+    G.add('a', 'b')
+    G.add('b', 'e', 'f', 'c')
+    G.add('c', 'g', 'd')
+    G.add('d', 'c', 'h')
+    G.add('e', 'a', 'f')
+    G.add('f', 'g')
+    G.add('g', 'f', 'h')
+    G.add('h', 'h')
+
+    for node_set in DFS(G).treesets():
+        print(node_set)
+
+    print()
+    for node_set in SCC(G).treesets():
+        print(node_set)
+        visualize(G, node_set)
