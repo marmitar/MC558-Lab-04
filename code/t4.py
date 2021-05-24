@@ -1,5 +1,5 @@
 from typing import Iterator
-from .scc import Graph, SCC
+from scc import Graph, SCC, DFS, visualize
 
 
 def numbers() -> Iterator[list[int]]:
@@ -30,4 +30,6 @@ if __name__ == "__main__":
     if len(SCC(G).roots) <= 1:
         print("Adequado.")
     else:
-        print("Inadequado.", len(SCC(G).roots))
+        print("Inadequado.")
+
+    visualize(G)

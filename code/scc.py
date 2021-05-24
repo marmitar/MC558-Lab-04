@@ -44,11 +44,11 @@ class Graph:
         return self.__class__.__name__ + '({' + nodes + '})'
 
 
-    def viz(self, collection: set[Node] = {}) -> Digraph:
+    def viz(self, collection: Optional[set[Node]] = None) -> Digraph:
         graph = Digraph()
 
         def color(*node: Node):
-            if all(n in collection for n in node):
+            if collection is None or all(n in collection for n in node):
                 return rgba('k', alpha=1.0)
             else:
                 return rgba('k', alpha=0.5)
@@ -179,7 +179,7 @@ def treeset(root: Node, parent: dict[Node, Node]) -> set[Node]:
         return nodes
 
 
-def visualize(graph: Graph, tree: set[Node]={}, *, render: bool=True) -> Digraph:
+def visualize(graph: Graph, tree: Optional[set[Node]]=None, *, render: bool=True) -> Digraph:
     digraph = graph.viz(tree)
     if render:
         digraph.render(f'{tree}', 'out', view=True, cleanup=True, quiet_view=True)
