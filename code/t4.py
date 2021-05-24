@@ -4,7 +4,8 @@ from scc import Graph, SCC, DFS, visualize
 
 def numbers() -> Iterator[list[int]]:
     try:
-        yield [int(s) for s in input().split()]
+        while True:
+            yield [int(s) for s in input().split()]
     except EOFError:
         pass
 
@@ -31,5 +32,3 @@ if __name__ == "__main__":
         print("Adequado.")
     else:
         print("Inadequado.")
-
-    visualize(G)
