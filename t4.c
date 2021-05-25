@@ -30,7 +30,6 @@ typedef struct graph graph_t;
 // Representação de um nó por lista de adjacências.
 typedef struct node {
     value_t value;  // valor do nó
-    graph_t *graph; // grafo que contém o nó
     size_t len;     // qtde de nós adjacentes
     size_t cap;     // capacidade da lista
     value_t adj[];  // índice dos nós adjacentes
@@ -117,7 +116,6 @@ node_t *node_new(value_t value, graph_t *graph) {
     new->cap = INITIAL;
     new->len = 0; // marca a lista como vazia
     new->value = value;
-    new->graph = graph;
     return new;
 }
 
@@ -253,7 +251,7 @@ static attribute(nonnull, hot, nothrow)
  * Visita 'node' e todos os seus descendentes não visitados.
  * Retorna a quantidade de nós visitados.
  */
-size_t visit(const node_t *restrict node, bool *restrict visited) {
+size_t visit(const graph_t * restrict graph, const node_t * restrict node, bool * restrict visited) {
     visited[node->value] = true;
     size_t count = 1;
 
@@ -261,7 +259,7 @@ size_t visit(const node_t *restrict node, bool *restrict visited) {
         size_t adj = node->adj[i];
         // visita filhos não visitados
         if (!visited[adj]) {
-            count += visit(node->graph->node[adj], visited);
+            count += visit(graph, graph->node[adj], visited);
         }
     }
     return count;
@@ -271,13 +269,13 @@ static attribute(pure, nonnull, hot, nothrow)
 /**
  * Checa se todos os nós são visitáveis entre si.
  */
-bool all_reachable(const graph_t *restrict graph, bool *restrict buffer) {
+bool all_reachable(const graph_t * restrict graph, bool * restrict buffer) {
     // visita o nó 'i'
     for (size_t i = 0; i < graph->size; i++) {
         // limpa buffer de visitados
         memset(buffer, false, graph->size * sizeof(bool));
         // visita por DFS
-        size_t count = visit(graph->node[i], buffer);
+        size_t count = visit(graph, graph->node[i], buffer);
         // checa se 'i' consegue visitar todos os nós
         if (count != graph->size) {
             return false;
