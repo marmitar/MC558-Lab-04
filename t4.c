@@ -165,10 +165,6 @@ static attribute(nonnull, cold, nothrow)
  * Retorna 'true' em caso de sucesso, 'false' caso contrário.
  */
 bool graph_connect(graph_t *graph, value_t from, value_t to) {
-    // valores devem ser índices válidos
-    if unlikely(from >= graph->size || to >= graph->size) {
-        return false;
-    }
     node_t *node = graph->node[from];
     // aumenta o tamanho se necessário
     if unlikely(node->len >= node->cap) {
@@ -190,15 +186,18 @@ static attribute(nonnull, cold, nothrow)
  * Retorna 'true' em caso de sucesso, 'false' caso contrário.
  */
 bool read_edges(graph_t *graph, size_t max) {
+    size_t size = graph->size;
+
     for (size_t i = 0; i < max; i++) {
         size_t A, B; uint8_t D;
         // leitura dos cruzamento e da direção
         int rv = scanf("%zu %zu %hhu", &A, &B, &D);
         // EOF, continua válido
         if unlikely(rv < 3) return true;
+        if unlikely(A >= size || B >= size) return false;
 
+        // conexão de duas mãos
         if (D == 2) {
-            // conexão de duas mãos
             bool ok = graph_connect(graph, B, A);
             if unlikely(!ok) return false;
             ok = graph_connect(graph, A, B);
