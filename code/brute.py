@@ -17,14 +17,21 @@ def reachable(root: Node) -> set[Node]:
 
 def unreachable(root: Node) -> set[Node]:
     reach = reachable(root)
-    assert len(reach) == len(root.graph.nodes)
     return {v for v in root.graph.vertices() if v not in reach}
 
 
 if __name__ == "__main__":
     G = read_graph()
 
+    # for node in G.vertices():
+    #     R = unreachable(node)
+    #     if len(R) > 0:
+    #         print(node, R)
+
     for node in G.vertices():
         R = unreachable(node)
         if len(R) > 0:
-            print(node, R)
+            print("Inadequado.")
+            break
+    else:
+        print("Adequado.")
