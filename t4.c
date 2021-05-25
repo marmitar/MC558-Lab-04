@@ -251,32 +251,35 @@ graph_t *read_graph(void) {
 static attribute(nonnull, hot, nothrow)
 /**
  * Visita 'node' e todos os seus descendentes não visitados.
+ * Retorna a quantidade de nós visitados.
  */
-void visit(const node_t *restrict node, bool *restrict visited) {
+size_t visit(const node_t *restrict node, bool *restrict visited) {
     visited[node->value] = true;
+    size_t count = 1;
 
     for (size_t i = 0; i < node->len; i++) {
         size_t adj = node->adj[i];
         // visita filhos não visitados
         if (!visited[adj]) {
-            visit(node->graph->node[adj], visited);
+            count += visit(node->graph->node[adj], visited);
         }
     }
+    return count;
 }
 
 static attribute(pure, nonnull, hot, nothrow)
 /**
- * Checa se todos os nós são visitáveis de 'root'.
+ * Checa se todos os nós são visitáveis entre si.
  */
-bool reach_all(const graph_t *restrict graph, size_t root, bool *restrict visited) {
-    // limpa buffer de visitados
-    memset(visited, false, graph->size * sizeof(bool));
-
+bool all_reachable(const graph_t *restrict graph, bool *restrict buffer) {
     // visita o nó 'i'
-    visit(graph->node[root], visited);
     for (size_t i = 0; i < graph->size; i++) {
-        // e checa se ele visitou todos os nós
-        if (!visited[i]) {
+        // limpa buffer de visitados
+        memset(buffer, false, graph->size * sizeof(bool));
+        // visita por DFS
+        size_t count = visit(graph->node[i], buffer);
+        // checa se 'i' consegue visitar todos os nós
+        if (count != graph->size) {
             return false;
         }
     }
@@ -289,14 +292,8 @@ int pass_transit_requirements(const graph_t *map) {
     bool *buffer = malloc(map->size * sizeof(bool));
     if unlikely(buffer == NULL) return ERROR;
 
-    for (size_t i = 0; i < map->size; i++) {
-        // checa se 'i' consegue visitar todos os nós
-        if (!reach_all(map, i, buffer)) {
-            free(buffer);
-            return false;
-        }
-    }
-    // todo nó chega em todo outro nó
+    // checa todo nó chega em todo outro nó
+    bool ok = all_reachable(map, buffer);
     free(buffer);
-    return true;
+    return ok;
 }
