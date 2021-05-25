@@ -82,16 +82,16 @@ int main(void) {
 
     // teste da adequação
     int rv = pass_transit_requirements(graph);
-    if unlikely(rv < 0) {
-        graph_free(graph);
-        return EXIT_FAILURE;
-    }
+    graph_free(graph); // não é mais necessário
+    if unlikely(rv < 0) return EXIT_FAILURE;
+
     // exibição da adequação
     if (rv > 0) {
         printf("Adequado.\n");
     } else {
         printf("Inadequado.\n");
     }
+    return EXIT_SUCCESS;
 
     graph_free(graph);
     return EXIT_SUCCESS;
