@@ -105,7 +105,7 @@ static attribute(malloc, cold, nothrow)
  * Retorna NULL em caso de falha.
  */
 node_t *node_new(value_t value, graph_t *graph) {
-    const size_t INITIAL = 16;
+    const size_t INITIAL = 8;
 
     node_t *new = malloc(offsetof(node_t, adj) + INITIAL * sizeof(uint16_t));
     if unlikely(new == NULL) return NULL;
@@ -238,6 +238,92 @@ graph_t *read_graph(void) {
 /* * * * * * * * * * *
  * CHECAGEM DO MAPA  *
  * * * * * * * * * * */
+
+// Nó e posição dele no percurso pré-ordem da floresta BP.
+typedef struct data {
+    value_t node;
+    value_t preorder;
+} data_t;
+
+// Pilha de vértices com CFG a determinar.
+typedef struct stack {
+    size_t len;
+    // momento de inserção (usado como posição pré-ordem)
+    value_t clock;
+    data_t data[];
+} stack_t;
+
+static attribute(malloc, cold, nothrow)
+/**
+ * Cria nova pilha com capacidade limitada.
+ * Retorna NULL em erro de alocação.
+ */
+stack_t *stack_new(size_t capacity) {
+    const size_t size = offsetof(stack_t, data) + capacity * sizeof(data_t);
+    stack_t *new = malloc(size);
+    if unlikely(new == NULL) return NULL;
+
+    new->len = 0; // vazia
+    new->clock = 0;
+    return new;
+}
+
+static inline attribute(pure, hot, nonnull, nothrow)
+/**
+ * Próximo elemento a ser removido.
+ */
+data_t stack_head(const stack_t *stack) {
+    // assume pilha não vazia
+    size_t last = stack->len - 1;
+    return stack->data[last];
+}
+
+static attribute(hot, nonnull, nothrow)
+/**
+ * Insere na pilha.
+ */
+value_t stack_push(stack_t *stack, value_t node) {
+    value_t preorder = ++stack->clock;
+    // assume que não ultrapassa a capacidade
+    stack->data[stack->len++] = (data_t) {
+        .node = node,
+        .preorder = preorder
+    };
+    return preorder;
+}
+
+static inline attribute(hot, nonnull, nothrow)
+/**
+ * Remove úlyimo elemento da pilha.
+ */
+data_t stack_pop(stack_t *stack) {
+    // assume pilha não vazia
+    return stack->data[--stack->len];
+}
+
+static attribute(pure, hot, nonnull, nothrow)
+/**
+ * Checa se a pilha com o nó com pré-ordem 'preorder'
+ * por busca binária. (Os elementos são inseridos nessa ordem).
+ */
+bool stack_contains(const stack_t *stack, value_t preorder) {
+    // limites da busca
+    size_t lo = 0, hi = stack->len;
+
+    while (lo < hi) {
+        size_t mid = (lo + hi) / 2;
+        value_t pmid = stack->data[mid].preorder;
+
+        if (pmid < preorder) {
+            hi = mid;
+        } else if (pmid > preorder) {
+            lo = mid + 1;
+        } else {
+            return true;
+        }
+    }
+    return false;
+}
 
 // Erro durante teste.
 #define ERROR (-1)
