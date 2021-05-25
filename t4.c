@@ -349,20 +349,27 @@ static inline attribute(pure, nonnull, hot, nothrow)
  * Checa se o nó está na pilha de não determinados.
  */
 bool info_unassigned(const struct info info, value_t node) {
-    value_t order = info.preorder[node];
-    // limites da busca
-    size_t lo = 0, hi = info.unassigned->len;
+    // value_t order = info.preorder[node];
+    // // limites da busca
+    // size_t lo = 0, hi = info.unassigned->len;
 
-    while (lo < hi) {
-        size_t mid = (lo + hi) / 2;
-        // preoreder da posição 'mid' da pilha
-        value_t pmid = info.preorder[info.unassigned->data[mid]];
+    // while (lo < hi) {
+    //     size_t mid = (lo + hi) / 2;
+    //     // preoreder da posição 'mid' da pilha
+    //     value_t pmid = info.preorder[info.unassigned->data[mid]];
 
-        if (pmid < order) {
-            hi = mid;
-        } else if (pmid > order) {
-            lo = mid + 1;
-        } else {
+    //     if (pmid < order) {
+    //         hi = mid;
+    //     } else if (pmid > order) {
+    //         lo = mid + 1;
+    //     } else {
+    //         return true;
+    //     }
+    // }
+    // return false;
+
+    for (size_t i = info.unassigned->len; i > 0; i--) {
+        if (info.unassigned->data[i-1] == node) {
             return true;
         }
     }
