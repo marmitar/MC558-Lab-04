@@ -1,5 +1,5 @@
-CC = gcc
-PROG = t4
+CC ?= gcc
+PROG ?= t4
 
 OPTIM   = -O3 -march=native -mtune=native -pipe -fivopts
 OPTIM  += -fmodulo-sched -flto -fwhole-program -fno-plt
@@ -29,7 +29,7 @@ test: main
 memcheck: main
 	@for arq in $$(ls tests/*.in); do \
 		logfile=$$(echo $$arq | sed s-tests/--g | sed s/.in/.valgrind/g); \
-		valgrind $(VGFLAGS) <$$arq &> $$logfile; \
+		valgrind $(VGFLAGS) ./$< <$$arq &> $$logfile; \
 		if [ $$? -eq 10 ]; then \
 			echo $$arq ERROR; \
 		else \

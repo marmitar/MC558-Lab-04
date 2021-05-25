@@ -3,3 +3,4 @@ main
 *.valgrind
 out/
 __pycache__/
+vgcore.*
