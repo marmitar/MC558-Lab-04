@@ -79,7 +79,7 @@ class Data:
         return count
 
     def new_component(self, node: Node) -> set[Node]:
-        component = {node}
+        component = {self.undetermined.pop()}
         while (v := self.unassigned.pop()) is not node:
             component.add(v)
 
