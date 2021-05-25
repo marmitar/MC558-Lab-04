@@ -368,7 +368,7 @@ bool info_unassigned(const struct info info, value_t node) {
     return false;
 }
 
-static inline attribute(nonnul, hot, nothrow)
+static inline attribute(hot, nothrow)
 /**
  * Marca nós como parte do CFG atual.
  */
@@ -381,7 +381,7 @@ void info_assign_until_node(const struct info info, value_t node) {
     }
 }
 
-static inline attribute(nonnul, hot, nothrow)
+static inline attribute(hot, nothrow)
 /**
  * Teste se é possível criar um CFG com o nó atual.
  */
@@ -395,10 +395,70 @@ bool info_new_component(const struct info info, value_t node) {
     }
 }
 
+static attribute(nonnull, hot, nothrow)
+/**
+ * Visita o nós como no DFS, mas retorna a quantidade de Componentes
+ * Fortemente Conexos encontrada.
+ *
+ * Retorna antes se MAX_SCC foi alcançado.
+ */
+size_t SCC_visit(const node_t * restrict node, const graph_t * restrict graph, const struct info info) {
+    info_discover(info, node->value);
+
+    // quantidade de CFGs
+    size_t count = 0;
+    for (size_t i = node->len; i > 0; i--) {
+        value_t adj = node->adj[i-1];
+
+        // visita não visitado
+        if (info_unvisited(info, adj)) {
+            count += SCC_visit(graph->node[adj], graph, info);
+            if unlikely(count > MAX_SCC) return count;
+        // ou marca como parte do CFG
+        } else if (info_unassigned(info, adj)) {
+            info_assign_until_node(info, adj);
+        }
+    }
+
+    // tenta finalizar o CFG
+    if (info_new_component(info, node->value)) {
+        count += 1;
+    }
+    return count;
+}
+
+static attribute(nonnull, hot, nothrow)
+/**
+ * Retorna a quantidade de CFGs no grafo.
+ */
+size_t SCC_count(const graph_t * restrict graph, const struct info info) {
+    size_t count = 0;
+
+    for (size_t i = graph->size; i > 0; i--) {
+        if (info_unvisited(info, i)) {
+            count += SCC_visit(graph->node[i], graph, info);
+            // retorna já estorou o limite
+            if unlikely(count > MAX_SCC) return count;
+        }
+    }
+    return count;
+}
+
 // Erro durante teste.
 #define ERROR (-1)
 
 /* Requisitos de trânsito. */
-int pass_transit_requirements(const graph_t *_map) {
-    return ERROR;
+int pass_transit_requirements(const graph_t *map) {
+    // zero pode dar problema na alocação
+    if unlikely(map->size == 0) return false;
+
+    struct info info;
+    if unlikely(!info_init(&info, map->size)) return ERROR;
+
+    // conta os CFGs no mapa
+    size_t sccs = SCC_count(map, info);
+    free(info.preorder);
+    free(info.unassigned);
+    // que deve ser apenas 1
+    return sccs == MAX_SCC;
 }
