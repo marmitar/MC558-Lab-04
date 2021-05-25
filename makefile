@@ -38,4 +38,4 @@ memcheck: main
 	done
 
 clean:
-	rm -f main *.valgrind
+	rm -f main *.valgrind vgcore.*

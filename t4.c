@@ -436,8 +436,8 @@ size_t SCC_count(const graph_t * restrict graph, const struct info info) {
     size_t count = 0;
 
     for (size_t i = graph->size; i > 0; i--) {
-        if (info_unvisited(info, i)) {
-            count += SCC_visit(graph->node[i], graph, info);
+        if (info_unvisited(info, i-1)) {
+            count += SCC_visit(graph->node[i-1], graph, info);
             // retorna já estorou o limite
             if unlikely(count > MAX_SCC) return count;
         }
