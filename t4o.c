@@ -110,7 +110,7 @@ static attribute(malloc, cold, nothrow)
 node_t *node_new(value_t value, graph_t *graph) {
     const size_t INITIAL = 16;
 
-    node_t *new = malloc(offsetof(node_t, adj) + INITIAL * sizeof(uint16_t));
+    node_t *new = malloc(offsetof(node_t, adj) + INITIAL * sizeof(value_t));
     if unlikely(new == NULL) return NULL;
 
     new->cap = INITIAL;
@@ -129,7 +129,7 @@ static attribute(malloc, cold, nothrow)
 node_t *node_increase(node_t *node) {
     size_t capacity = node->cap * 2;
     // realoca com dobro de capacidade
-    node_t *new = realloc(node, offsetof(node_t, adj) + capacity * sizeof(uint16_t));
+    node_t *new = realloc(node, offsetof(node_t, adj) + capacity * sizeof(value_t));
     if unlikely(new == NULL) return NULL;
 
     // ajusta a capacidade
@@ -147,6 +147,7 @@ graph_t *graph_new(size_t size) {
     graph_t *new = malloc(offsetof(graph_t, node) + size * sizeof(node_t *));
     if unlikely(new == NULL) return NULL;
 
+    new->size = 0;
     for (size_t u = 0; u < size; u++) {
         // aloca nó
         node_t *node = node_new(u, new);
@@ -196,8 +197,8 @@ bool read_edges(graph_t *graph, size_t max) {
         // leitura dos cruzamento e da direção
         int rv = scanf("%zu %zu %hhu", &A, &B, &D);
         // EOF, continua válido
-        if unlikely(rv < 3) return true;
-        if unlikely(A >= size || B >= size) return false;
+        if unlikely(rv < 0) return true;
+        if unlikely(rv < 3 || A >= size || B >= size) return false;
 
         // conexão de duas mãos
         if (D == 2) {
