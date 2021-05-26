@@ -363,20 +363,13 @@ bool info_unassigned(const struct info info, value_t node) {
     while (lo < hi) {
         size_t mid = (lo + hi) / 2;
         // preorder da posição 'mid' da pilha
-        value_t pmid = info.preorder[info.unassigned->data[mid] + 1];
+        value_t omid = info.preorder[info.unassigned->data[mid] + 1];
 
-        if (pmid < order) {
-            hi = mid;
-        } else if (pmid > order) {
+        if (omid < order) {
             lo = mid + 1;
+        } else if (omid > order) {
+            hi = mid;
         } else {
-            return true;
-        }
-    }
-    return false;
-
-    for (size_t i = info.unassigned->len; i > 0; i--) {
-        if (info.unassigned->data[i-1] == node) {
             return true;
         }
     }
