@@ -243,8 +243,6 @@ graph_t *read_graph(void) {
 // Pilha de vértices com CFG a determinar.
 typedef struct stack {
     size_t len;
-    // marcador de momento de inserção
-    size_t clock;
     value_t data[];
 } stack_t;
 
@@ -259,7 +257,6 @@ stack_t *stack_new(size_t capacity) {
     if unlikely(new == NULL) return NULL;
 
     new->len = 0; // vazia
-    new->clock = 0;
     return new;
 }
 
@@ -277,11 +274,9 @@ static attribute(hot, nonnull, nothrow)
 /**
  * Insere na pilha e retorna o momento da inserção.
  */
-value_t stack_push(stack_t *stack, value_t node) {
-    value_t time = ++stack->clock;
+void stack_push(stack_t *stack, value_t node) {
     // assume que não ultrapassa a capacidade
     stack->data[stack->len++] = node;
-    return time;
 }
 
 static inline attribute(hot, nonnull, nothrow)
@@ -303,7 +298,9 @@ struct info {
     // pilha de nós sem componente
     stack_t * restrict unassigned;
     // ordem de inserção na pilha (e busca pré-ordem)
-    value_t * restrict preorder;
+    value_t * restrict preorder; // 1o valor é o clock
+    // nós que podem pertencer a outro componente
+    stack_t * restrict undetermined;
 };
 
 static attribute(nonnull, cold, nothrow)
@@ -315,15 +312,23 @@ bool info_init(struct info *info, size_t size) {
     stack_t *unassigned = stack_new(size);
     if unlikely(unassigned == NULL) return false;
     // o momento zero indica não visitado
-    value_t *preorder = calloc(size, sizeof(value_t));
+    stack_t *undetermined = stack_new(size);
+    if unlikely(undetermined == NULL) {
+        free(unassigned);
+        return false;
+    };
+    // o momento zero indica não visitado
+    value_t *preorder = calloc(size + 1, sizeof(value_t));
     if unlikely(preorder == NULL) {
         free(unassigned);
+        free(undetermined);
         return false;
     };
 
     *info = (struct info) {
         .unassigned = unassigned,
-        .preorder = preorder
+        .preorder = preorder,
+        .undetermined = undetermined
     };
     return true;
 }
@@ -333,7 +338,9 @@ static inline attribute(nonnull, hot, nothrow)
  * Marca nó como descoberto na estrutura da informação.
  */
 void info_discover(const struct info info, value_t node) {
-    info.preorder[node] = stack_push(info.unassigned, node);
+    stack_push(info.unassigned, node);
+    stack_push(info.undetermined, node);
+    info.preorder[node + 1] = ++info.preorder[0];
 }
 
 static inline attribute(pure, nonnull, hot, nothrow)
@@ -341,7 +348,7 @@ static inline attribute(pure, nonnull, hot, nothrow)
  * Teste se nó ainda não foi visitado.
  */
 bool info_unvisited(const struct info info, value_t node) {
-    return info.preorder[node] == UNVISITED;
+    return info.preorder[node + 1] == UNVISITED;
 }
 
 static inline attribute(pure, nonnull, hot, nothrow)
@@ -349,24 +356,24 @@ static inline attribute(pure, nonnull, hot, nothrow)
  * Checa se o nó está na pilha de não determinados.
  */
 bool info_unassigned(const struct info info, value_t node) {
-    // value_t order = info.preorder[node];
-    // // limites da busca
-    // size_t lo = 0, hi = info.unassigned->len;
+    value_t order = info.preorder[node + 1];
+    // limites da busca
+    size_t lo = 0, hi = info.unassigned->len;
 
-    // while (lo < hi) {
-    //     size_t mid = (lo + hi) / 2;
-    //     // preoreder da posição 'mid' da pilha
-    //     value_t pmid = info.preorder[info.unassigned->data[mid]];
+    while (lo < hi) {
+        size_t mid = (lo + hi) / 2;
+        // preorder da posição 'mid' da pilha
+        value_t pmid = info.preorder[info.unassigned->data[mid] + 1];
 
-    //     if (pmid < order) {
-    //         hi = mid;
-    //     } else if (pmid > order) {
-    //         lo = mid + 1;
-    //     } else {
-    //         return true;
-    //     }
-    // }
-    // return false;
+        if (pmid < order) {
+            hi = mid;
+        } else if (pmid > order) {
+            lo = mid + 1;
+        } else {
+            return true;
+        }
+    }
+    return false;
 
     for (size_t i = info.unassigned->len; i > 0; i--) {
         if (info.unassigned->data[i-1] == node) {
@@ -380,12 +387,12 @@ static inline attribute(hot, nothrow)
 /**
  * Marca nós como parte do CFG atual.
  */
-void info_assign_until_node(const struct info info, value_t node) {
-    value_t order = info.preorder[node];
+void info_determine_for_node(const struct info info, value_t node) {
+    value_t order = info.preorder[node + 1];
 
     // remove da pilha de não determinados
-    while (info.preorder[stack_head(info.unassigned)] > order) {
-        stack_pop(info.unassigned);
+    while (info.preorder[stack_head(info.undetermined) + 1] > order) {
+        stack_pop(info.undetermined);
     }
 }
 
@@ -394,9 +401,14 @@ static inline attribute(hot, nothrow)
  * Teste se é possível criar um CFG com o nó atual.
  */
 bool info_new_component(const struct info info, value_t node) {
-    if (stack_head(info.unassigned) == node) {
+    if (stack_head(info.undetermined) == node) {
+        // remove os nós que são parte deste CFG
+        while (stack_head(info.unassigned) != node) {
+            stack_pop(info.unassigned);
+        }
         // remove o nó, pois será parte do CFG
         stack_pop(info.unassigned);
+        stack_pop(info.undetermined);
         return true;
     } else {
         return false;
@@ -424,7 +436,7 @@ size_t SCC_visit(const node_t * restrict node, const graph_t * restrict graph, c
             if unlikely(count > MAX_SCC) return count;
         // ou marca como parte do CFG
         } else if (info_unassigned(info, adj)) {
-            info_assign_until_node(info, adj);
+            info_determine_for_node(info, adj);
         }
     }
 
@@ -467,6 +479,7 @@ int pass_transit_requirements(const graph_t *map) {
     size_t sccs = SCC_count(map, info);
     free(info.preorder);
     free(info.unassigned);
+    free(info.undetermined);
     // que deve ser apenas 1
     return sccs == MAX_SCC;
 }
