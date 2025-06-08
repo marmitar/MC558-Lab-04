@@ -1,6 +1,8 @@
-# MC558 - Tarefa 4
+# Análise de Algoritmos II (MC558) - Tarefa 4
 
-[Enunciado em PDF](enunc.pdf).
+- [Enunciado](./enunc.pdf)
+- [Solução](./t4.c)
+- [Solução Otimizada](./t4o.c)
 
 ## Problema
 
